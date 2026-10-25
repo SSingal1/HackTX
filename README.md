@@ -41,6 +41,8 @@ node check.mjs
 
 ## Deploy on Vercel
 
+Production deployment: **https://hacktx-nextmove.vercel.app**
+
 This repository is packaged as one Vercel project: `dist/` is served through Vercel's CDN and
 `api/index.py` exposes the FastAPI application under `/api/v1`. Link the repository or run
 `vercel link`, then configure these project environment variables for Preview and Production:
