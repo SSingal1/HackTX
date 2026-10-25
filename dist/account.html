@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Demo account | Toyota Financial Services Sandbox</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+      .landing{max-width:1210px;margin:0 auto;padding:30px 25px 56px;min-height:620px}.landing .breadcrumb{display:flex;align-items:center;gap:10px;color:#7b8186;font-size:11px;margin:2px 0 25px}.landing .breadcrumb a:hover{color:var(--red)}.landing .breadcrumb strong{color:#34383c;font-weight:600}#account-page{max-width:1000px}#account-page .hero{padding:30px 32px 25px;background:linear-gradient(115deg,#fff,#f4f6f7);border:1px solid var(--line);border-radius:10px 10px 0 0}#account-page .hero h1{font-size:31px;max-width:610px;margin:9px 0 10px;letter-spacing:-1.2px}#account-page .hero p{max-width:650px;color:#6d747a;font-size:12px;margin-bottom:17px}#account-page .tabnav{background:#fff;margin:0;padding:0 28px;gap:25px;border:1px solid var(--line);border-top:0;overflow-x:auto}#account-page .tabnav a{display:inline-flex;align-items:center;border-bottom:2px solid transparent;padding:14px 0 12px;font-size:11px;font-weight:600;color:#777e85;white-space:nowrap}#account-page .tabnav a:hover{color:var(--red)}#account-page .tabnav a.active{color:#191b1e;border-color:var(--red)}#account-page .summary-grid{margin:20px 0}#account-page .summary-card{min-height:166px;display:flex;flex-direction:column;align-items:flex-start}#account-page .summary-card p{font-size:11px;color:#737a80;margin:14px 0 17px;line-height:1.65}#account-page .summary-card .btn{margin-top:auto}.landing .integration-note{max-width:1000px;margin-top:25px}@media(max-width:640px){.landing{padding:20px 16px 38px}.landing .breadcrumb{margin-bottom:18px}#account-page .hero{padding:24px 20px 20px}#account-page .hero h1{font-size:26px}#account-page .tabnav{padding:0 20px;gap:20px}#account-page .summary-grid{grid-template-columns:1fr}}
+    </style>
+    <script src="common.js" defer></script>
+    <script src="account.js" defer></script>
+  </head>
+  <body>
+    <div id="site-header"></div>
+    <main class="landing">
+      <div class="breadcrumb"><a href="index.html">Home</a><span>›</span><strong>Demo account</strong></div>
+      <div id="account-page"></div>
+    </main>
+    <div id="overlay-root"></div>
+    <div id="toast-root" aria-live="polite"></div>
+    <div id="site-footer"></div>
+  </body>
+</html>

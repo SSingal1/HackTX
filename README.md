@@ -1,33 +1,38 @@
 # Toyota TCO & Smart Service Guardian sandbox
 
-Two responsive pages built with HTML, CSS and vanilla JavaScript. No installation or build step is required.
+A TFS-inspired static frontend served by the Toyota NextMove FastAPI backend. The public homepage introduces Smart Service Guardian as a subpage of a simulated Toyota Financial Services experience.
 
-- `dist/index.html`: TFS-inspired public homepage with navigation, search, highlight carousel and Guardian entry point.
-- `dist/guardian.html`: personalized service dashboard with five functional sections.
-- `dist/common.js`: shared header, icons, accessible dialogs and sandbox notices.
-- `dist/guardian.js`: deterministic cost calculations, profile fixtures, offer handling, what-if inputs, scripted assistant and browser-local plan storage.
-- `dist/styles.css`: shared responsive design.
-- `dist/assets/vehicle.svg`: local illustrative vehicle asset; no external image dependency.
+- `dist/index.html`: simulated TFS homepage and Guardian entry point.
+- `dist/guardian.html`: account dashboard with Overview, Maintenance, Local Offers, Keep vs. Upgrade, and My Next Move views.
+- `dist/guardian.js`: same-origin Guardian API client and UI behavior.
+- `dist/common.js` and `dist/styles.css`: shared responsive shell, dialogs, navigation, and design.
 
-## Run locally
+## Run with the backend
 
-Serve the `dist` directory using any static HTTP server, for example `npx serve dist`. Open `index.html`, then follow Smart Service Guardian. Hash routes preserve the five Guardian views.
+From `/Users/ashrithv/Projects/toyota-nextmove`, activate the Python environment and run:
 
-## Demo data and interactions
+```bash
+uvicorn nextmove.main:app --reload
+```
 
-Profiles: Alex has no repair coverage, Jordan has an explicit $1,000 synthetic benefit, and Sam has limited available cash. All share the same Camry and base estimate. The $50 brake promotion cannot stack with coverage. Mileage, repair amount and reserve controls recalculate the comparison. The assistant can propose edits, which require confirmation. Saved inquiries stay in `localStorage`, and plans can be exported as JSON. No actual provider contact, payment, claim or booking occurs.
+Open `http://127.0.0.1:8000/`. The backend serves this `dist` directory under `/site` and exposes the same-origin API at `/api/v1/guardian`, so no browser API key or separate frontend server is required.
 
-## API integration boundaries
+## Data boundaries
 
-This is a frontend sandbox. It does not make live SerpApi, Gemini or Snowflake calls and does not collect secrets. The source identifies this in the UI. The recommended next implementation is a server with these routes:
+The frontend loads synthetic customer, vehicle, contract, service-history, source, comparison, inquiry, and provider-evidence data from the backend. The backend prefers seeded Snowflake profiles and returns an explicitly labeled local synthetic fallback if Snowflake is unavailable. Upcoming service allowances remain frontend planning fixtures and are labeled as such.
 
-- GET /api/profile: authenticated synthetic/authorized account context from Snowflake SQL API.
-- POST /api/discover: server-controlled Google Search and Google Maps queries through SerpApi; normalize and save evidence with source URL and retrieval time.
-- POST /api/compare: deterministic calculations followed by schema-validated Gemini explanation. Input modifications require confirmation.
-- POST /api/inquiries and GET /api/history: persist and reload selected scenarios and simulated actions through Snowflake SQL API.
+The Local Offers view requests `/api/v1/guardian/providers?profile=<id>&refresh=false` once per profile and reuses that response in browser memory. The backend may return cached SerpApi evidence or a clearly labeled synthetic fallback. Only the **Refresh live results** confirmation sends `refresh=true`, which may consume one search API request. The browser never calls SerpApi directly and never receives an API key.
 
-Put provider credentials in server environment variables, never the browser or repository. A real TFS integration requires separately authorized identity/account access. Service history and protection coverage require their own verified sources.
+Provider prices, promotions, service scope, and Toyota authorization are always shown as unverified. Search snippets never become calculation inputs. The optional $50 adjustment remains a separate synthetic what-if toggle.
 
-## Design and attribution
+The assistant sends one request to `/api/v1/guardian/chat` only after a user submits a message or selects a suggestion. It sends the selected synthetic profile, current scenario, current view, and at most six short prior messages. The backend owns Gemini access, validation, authoritative calculations, cached evidence, and deterministic fallback; no key or direct Gemini call reaches the browser. Replies identify fallback/warning state and evidence IDs. Proposed scenario changes require an explicit confirmation before local state changes and a debounced comparison recalculation. Failed requests keep the chat open and do not alter the scenario.
 
-Public reference: https://www.toyotafinancial.com/us/en.html. This independent sandbox reproduces familiar TFS branding, navigation hierarchy, red accents and financial-services layouts, with a new Guardian experience. It is not a pixel-perfect clone or official Toyota property. The vehicle is an original SVG illustration. Google Fonts are optional; system font fallbacks are included. Toyota marks belong to their respective owners.
+Saved scenario controls use `localStorage`; saved inquiries go to the backend’s local demo database. No provider contact, payment, claim, or booking occurs.
+
+Run the dependency-free frontend check with:
+
+```bash
+node check.mjs
+```
+
+Toyota marks belong to their respective owners. This independent hackathon sandbox is not affiliated with or endorsed by Toyota or Toyota Financial Services.
