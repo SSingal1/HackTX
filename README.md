@@ -39,4 +39,33 @@ Run the dependency-free frontend check with:
 node check.mjs
 ```
 
+## Deploy on Vercel
+
+This repository is packaged as one Vercel project: `dist/` is served through Vercel's CDN and
+`api/index.py` exposes the FastAPI application under `/api/v1`. Link the repository or run
+`vercel link`, then configure these project environment variables for Preview and Production:
+
+- `GEMINI_API_KEY`
+- `GUARDIAN_GEMINI_MODEL=gemini-3.5-flash-lite`
+- `SERPAPI_API_KEY`
+- `SNOWFLAKE_ACCOUNT`
+- `SNOWFLAKE_USER`
+- `SNOWFLAKE_PASSWORD`
+- `SNOWFLAKE_AUTHENTICATOR=snowflake`
+- `SNOWFLAKE_ROLE=NEXTMOVE_APP_ROLE`
+- `SNOWFLAKE_WAREHOUSE=COMPUTE_WH`
+- `SNOWFLAKE_DATABASE=TFS_NEXT_MOVE`
+- `SNOWFLAKE_SCHEMA=CORE`
+- `NEXTMOVE_CORS_ORIGINS=https://<your-production-domain>`
+
+Do not use Snowflake's `externalbrowser` authenticator in Vercel because a serverless function
+cannot complete an interactive browser sign-in. Use a dedicated least-privilege demo user with
+password authentication (or extend the connector to key-pair authentication before production).
+The Vercel runtime automatically puts the SQLite evidence cache in `/tmp`; it is an optimization,
+not durable storage. Profile data remains in Snowflake, and browser scenario state remains local to
+the visitor. A cold function instance may therefore require a deliberate SerpApi refresh again.
+
+After adding variables, deploy a preview with `vercel deploy`, verify the API and Guardian pages,
+then promote it with `vercel deploy --prod`.
+
 Toyota marks belong to their respective owners. This independent hackathon sandbox is not affiliated with or endorsed by Toyota or Toyota Financial Services.

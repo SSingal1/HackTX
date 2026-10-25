@@ -1,3 +1,4 @@
+import os
 from functools import lru_cache
 
 from pydantic import Field
@@ -14,7 +15,11 @@ class Settings(BaseSettings):
         case_sensitive=False,
     )
 
-    guardian_database_path: str = "data/guardian.sqlite3"
+    guardian_database_path: str = Field(
+        default_factory=lambda: (
+            "/tmp/guardian.sqlite3" if os.environ.get("VERCEL") else "data/guardian.sqlite3"
+        )
+    )
     guardian_provider_cache_ttl_seconds: int = 21600
     guardian_market_cache_ttl_seconds: int = 21600
     nextmove_frontend_dir: str = "../toyota-frontend/dist"
