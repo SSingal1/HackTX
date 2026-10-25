@@ -76,6 +76,13 @@ class GuardianMarketEvidenceService:
         camry_reference = results["camry"]
         prius_reference = results["prius"]
         finance_reference = results["finance"]
+        categories = [
+            self._category("Fuel-price research", fuel),
+            self._category("Corolla Hybrid pricing and lease research", corolla_reference),
+            self._category("Camry pricing and lease research", camry_reference),
+            self._category("Prius pricing and lease research", prius_reference),
+            self._category("Toyota regional finance and lease research", finance_reference),
+        ]
         body = {
             "profile_id": profile_id,
             "location": location,
@@ -84,13 +91,7 @@ class GuardianMarketEvidenceService:
             "cached": False,
             "retrieved_at": datetime.now(UTC).isoformat(),
             "source": "serpapi",
-            "categories": [
-                self._category("Fuel-price research", fuel),
-                self._category("Corolla Hybrid pricing and lease research", corolla_reference),
-                self._category("Camry pricing and lease research", camry_reference),
-                self._category("Prius pricing and lease research", prius_reference),
-                self._category("Toyota regional finance and lease research", finance_reference),
-            ],
+            "categories": [category for category in categories if category["evidence"]],
             "fuel_reference": self._fuel_reference(fuel),
             "notice": (
                 "Public-web evidence only. A fuel reference is available only when an explicit "

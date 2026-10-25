@@ -260,11 +260,13 @@ class SnowflakeRepository:
             for service in rows
             if service.get("SERVICE_ID") is not None
         ]
+        profile_id = row["PROFILE_ID"]
+        alex_alias = profile_id == "alex"
         return {
             "profile_id": row["PROFILE_ID"],
-            "name": row["FIRST_NAME"],
-            "initials": row["INITIALS"],
-            "label": row["PROFILE_LABEL"],
+            "name": "Alex Morgan" if alex_alias else row["FIRST_NAME"],
+            "initials": "AM" if alex_alias else row["INITIALS"],
+            "label": "Alex · no coverage" if alex_alias else row["PROFILE_LABEL"],
             "coverage": row["SERVICE_COVERAGE_LIMIT"] or 0,
             "cash": row["CASH_RESERVE"],
             "reserve": row["PROTECTED_CASH_RESERVE"],

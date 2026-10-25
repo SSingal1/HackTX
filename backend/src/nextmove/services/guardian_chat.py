@@ -57,7 +57,7 @@ class GuardianChatService:
             },
             "scenario_bounds": {
                 "miles": {"type": "number", "min": 6000, "max": 30000},
-                "repair": {"type": "number", "min": 500, "max": 4500},
+                "repair": {"type": "number", "min": 0, "max": 4500},
                 "reserve": {"type": "number", "min": 500, "max": 6000},
                 "discount": {"type": "boolean"},
             },

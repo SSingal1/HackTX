@@ -69,6 +69,7 @@ class ComparePayload(BaseModel):
     # This is never inferred from web search.  It may only be supplied after the
     # client has shown the user an attributable public-source reference.
     fuel_price_per_gallon: Decimal = Field(default=Decimal("3.50"), ge=1, le=10)
+    cash_on_hand: Decimal | None = Field(default=None, ge=0, le=100000)
     monthly_free_cash_flow: Decimal | None = Field(default=None, ge=0, le=50000)
     upgrade_id: str = Field(
         default="corolla_hybrid", pattern="^(corolla_hybrid|camry_le|prius_le)$"
@@ -242,7 +243,8 @@ def _compare(payload: ComparePayload, repository: GuardianProfileRepository) -> 
             else upgrade["purchase_monthly"]
         )
     )
-    keep_cash, replace_cash = Decimal(p["cash"]) - oop, Decimal(p["cash"]) - replacement_cash_due
+    starting_cash = payload.cash_on_hand if payload.cash_on_hand is not None else Decimal(p["cash"])
+    keep_cash, replace_cash = starting_cash - oop, starting_cash - replacement_cash_due
     keep_reserve_ok, replace_reserve_ok = (
         keep_cash >= payload.reserve,
         replace_cash >= payload.reserve,
@@ -316,6 +318,7 @@ def _compare(payload: ComparePayload, repository: GuardianProfileRepository) -> 
                     "insurance_registration": "assumed equal",
                     "simulated": True,
                     "reserve_scope": "Protected cash floor after one-time cash due",
+                    "cash_on_hand": float(starting_cash),
                     "monthly_free_cash_flow": float(monthly_flow)
                     if monthly_flow is not None
                     else None,
@@ -366,6 +369,7 @@ def _compare(payload: ComparePayload, repository: GuardianProfileRepository) -> 
         difference=difference,
         keepCash=keep_cash,
         replaceCash=replace_cash,
+        startingCash=starting_cash,
         fuelPrice=fuel_price,
         keepMonthly=keep_monthly,
         replaceMonthly=replace_monthly,

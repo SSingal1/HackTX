@@ -199,6 +199,13 @@ class GuardianGeminiClient:
             _canonical_number(number)
             for number in re.findall(r"-?\d+(?:\.\d+)?", json.dumps(authoritative, default=str))
         }
+        cited_market = [
+            item for item in market_items if item["evidence_id"] in output.cited_evidence_ids
+        ]
+        trusted_numbers.update(
+            _canonical_number(number)
+            for number in re.findall(r"-?\d+(?:\.\d+)?", json.dumps(cited_market, default=str))
+        )
         if allowed_change_number:
             trusted_numbers.add(allowed_change_number)
         for number in re.findall(r"-?\d+(?:\.\d+)?", output.message.replace(",", "")):

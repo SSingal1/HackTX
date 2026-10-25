@@ -56,6 +56,10 @@ def test_synthetic_comparisons(client):
     monthly = compare(monthly_free_cash_flow=500)
     assert monthly["calculation"]["keepMonthlyOK"] is True
     assert monthly["calculation"]["replaceMonthlyOK"] is False
+    liquid = compare(cash_on_hand=21000, repair=4500, reserve=2000)
+    assert liquid["calculation"]["startingCash"] == 21000
+    assert liquid["calculation"]["keepCash"] == 16500
+    assert liquid["calculation"]["keepReserveOK"] is True
     lease = compare(upgrade_id="prius_le", upgrade_mode="lease")
     assert lease["selected_upgrade"]["label"] == "2025 Prius LE"
     assert lease["calculation"]["replacementPayment"] == 399
