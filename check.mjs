@@ -24,6 +24,7 @@ run(`profiles={alex:${JSON.stringify(fixture)},covered:{...${JSON.stringify(fixt
 assert.equal(run('vehicleName()'),'2018 Toyota Camry SE');
 assert.equal(run('vehicleAsset("Camry")'),'assets/camry.png');
 assert.equal(run('vehicleAsset("Corolla Hybrid")'),'assets/corolla.png');
+assert.equal(run('vehicleAsset("Prius")'),'assets/prius.png');
 assert.equal(run('vehicle().mileage'),78000);
 assert.equal(run('contract().contract_type'),'CASH');
 assert.equal(run('serviceItems().filter(x=>x.status==="completed").length'),1);
@@ -32,6 +33,7 @@ assert.ok(run('maintenance()').includes('Inspection'));
 assert.ok(run('accountCompare()').includes('2018 Toyota Camry SE'));
 assert.ok(run('accountCompare()').includes('id="cash-on-hand"'));
 assert.ok(run('accountCompare()').includes('Monthly budget surplus'));
+assert.ok(run('accountCompare()').includes('SYNTHETIC BANKING FORENSICS'));
 assert.equal(run('makeSimplePdf(["Test plan"]).type'),'application/pdf');
 assert.ok(run('makeSimplePdf(["Test plan"]).size')>100);
 run(`providerCache.alex=${JSON.stringify(providerResponse)}`);
@@ -127,15 +129,15 @@ assert.ok(guardianSource.includes("button.type='button'"));
 assert.ok(guardianSource.includes("setAttribute('aria-label','Reset this demo')"));
 for(const tab of ['overview','maintenance','local','compare','plan']){const content=run(({overview:'overview()',maintenance:'maintenance()',local:'localView()',compare:'accountCompare()',plan:'plan()'})[tab]);assert.ok(content.length>400,tab);assert.ok(!content.includes('NaN'),tab);}
 for(const filename of ['index.html','guardian.html']){const text=fs.readFileSync('dist/'+filename,'utf8');for(const [,asset]of text.matchAll(/(?:src|href)="([^"#]+\.(?:js|css|svg))"/g)){assert.ok(fs.existsSync('dist/'+asset),asset);}}
-for(const asset of ['camry.png','corolla.png','service-center.png','service-center.jpg'])assert.ok(fs.existsSync('dist/assets/'+asset),asset);
+for(const asset of ['camry.png','corolla.png','prius.png','service-center.png','service-center.jpg'])assert.ok(fs.existsSync('dist/assets/'+asset),asset);
 assert.ok(run('loadingView()').includes('guardian-skeleton'));
 const marketRequestsBefore=requestCount('/api/v1/guardian/market-evidence');
-assert.ok(run('marketView()').includes('Refresh public research'));
+assert.ok(run('marketView()').includes('Run 4 focused searches'));
 assert.equal(requestCount('/api/v1/guardian/market-evidence'),marketRequestsBefore);
 await run('loadMarket(true)');
 assert.equal(requestCount('/api/v1/guardian/market-evidence'),marketRequestsBefore+1);
 assert.ok(fs.readFileSync('dist/guardian.js','utf8').includes('confirm-market-refresh'));
-run(`marketCache.alex={retrieved_at:'2026-10-25T01:00:00Z',categories:[{label:'Useful result',evidence:[{title:'Source',fact:'Current fact',url:'https://example.test/source'}]},{label:'Empty result',evidence:[]}]}`);
+run(`marketCache['alex:corolla_hybrid']={retrieved_at:'2026-10-25T01:00:00Z',categories:[{label:'Useful result',decision_use:'Use this evidence',evidence:[{title:'Source',fact:'Current fact',url:'https://example.test/source'}]},{label:'Empty result',evidence:[]}]}`);
 assert.ok(run('marketResearchPanel()').includes('Useful result'));
 assert.ok(!run('marketResearchPanel()').includes('Empty result'));
 console.log('PASS: safe initialization, per-profile state, cached tabs, backend chat, and image assets.');

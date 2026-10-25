@@ -54,18 +54,17 @@ def test_cache_only_market_evidence_never_calls_serpapi(tmp_path):
     assert result["categories"] == []
 
 
-def test_explicit_refresh_runs_five_bounded_queries_then_uses_cache(tmp_path):
+def test_explicit_refresh_runs_four_decision_specific_queries_then_uses_cache(tmp_path):
     search = CountingMarketSearch()
     market = service(tmp_path, search)
     refreshed = market.evidence("alex", refresh=True)
     cached = market.evidence("alex")
-    assert len(search.calls) == 5
+    assert len(search.calls) == 4
     queries = [query for query, _location, _limit in search.calls]
     assert any("site:gasprices.aaa.com" in query for query in queries)
     assert all(limit == 3 for _query, _location, limit in search.calls)
     assert any("Corolla Hybrid LE" in query for query in queries)
-    assert any("Camry LE" in query for query in queries)
-    assert any("Prius LE" in query for query in queries)
+    assert any("trade in value" in query for query in queries)
     assert any("site:toyota.com/deals-incentives/texas" in query for query in queries)
     assert any('"APR" financing' in query for query in queries)
     assert refreshed["source"] == "serpapi"
@@ -73,7 +72,7 @@ def test_explicit_refresh_runs_five_bounded_queries_then_uses_cache(tmp_path):
     assert refreshed["categories"][0]["evidence"][0]["url"] == "https://gasprices.aaa.com/?state=TX"
     assert refreshed["fuel_reference"]["price_per_gallon"] == 3.42
     assert cached["cached"] is True
-    assert len(search.calls) == 5
+    assert len(search.calls) == 4
 
 
 def test_unknown_profile_returns_none_without_search(tmp_path):
@@ -92,7 +91,7 @@ def test_adopted_fuel_reference_is_confirmation_only(tmp_path):
     assert adopted["fuel_price_per_gallon"] == 3.42
     assert adopted["requires_confirmation"] is True
     assert "has not changed" in adopted["notice"]
-    assert len(search.calls) == 5
+    assert len(search.calls) == 4
 
 
 def test_non_aaa_fuel_evidence_cannot_be_adopted(tmp_path):

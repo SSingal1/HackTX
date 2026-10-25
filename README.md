@@ -19,11 +19,15 @@ Open `http://127.0.0.1:8000/`. The backend serves this `dist` directory under `/
 
 ## Data boundaries
 
-The frontend loads synthetic customer, vehicle, contract, service-history, source, comparison, inquiry, and provider-evidence data from the backend. The backend prefers seeded Snowflake profiles and returns an explicitly labeled local synthetic fallback if Snowflake is unavailable. Upcoming service allowances remain frontend planning fixtures and are labeled as such.
+The frontend loads synthetic customer, vehicle, contract, service-history, banking, comparison, inquiry, and provider-evidence data from the backend. The backend prefers seeded Snowflake profiles and returns an explicitly labeled local synthetic fallback if Snowflake is unavailable. Upcoming service allowances remain frontend planning fixtures and are labeled as such.
+
+The banking module is a **Nessie-shaped simulation**, not a bank connection. Synthetic accounts, deposits, bills, essential spending, and loan payments produce monthly free cash flow, a dynamic Cash to Protect floor, safe-to-spend liquidity, post-upgrade free cash flow, and an illustrative debt-to-income signal. Finance plans use those signals with a disclosed synthetic trade credit, APR, and term. They never create an application, approval, quote, loan, or payment.
 
 The Local Offers view requests `/api/v1/guardian/providers?profile=<id>&refresh=false` once per profile and reuses that response in browser memory. The backend may return cached SerpApi evidence or a clearly labeled synthetic fallback. Only the **Refresh live results** confirmation sends `refresh=true`, which may consume one search API request. The browser never calls SerpApi directly and never receives an API key.
 
 Provider prices, promotions, service scope, and Toyota authorization are always shown as unverified. Search snippets never become calculation inputs. The optional $50 adjustment remains a separate synthetic what-if toggle.
+
+The Keep vs. Upgrade view also offers an explicit four-search research refresh tied to the selected replacement vehicle: Austin fuel, official Toyota pricing or lease context, regional Toyota financing, and the current vehicle's market value. Results are cached per profile and selected upgrade. Each source explains which assumption it helps validate; only a user-confirmed AAA fuel reference can become a temporary planning input.
 
 The assistant sends one request to `/api/v1/guardian/chat` only after a user submits a message or selects a suggestion. It sends the selected synthetic profile, current scenario, current view, and at most six short prior messages. The backend owns Gemini access, validation, authoritative calculations, cached evidence, and deterministic fallback; no key or direct Gemini call reaches the browser. Replies identify fallback/warning state and evidence IDs. Proposed scenario changes require an explicit confirmation before local state changes and a debounced comparison recalculation. Failed requests keep the chat open and do not alter the scenario.
 

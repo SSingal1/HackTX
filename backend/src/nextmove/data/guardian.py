@@ -202,6 +202,67 @@ LOCAL_SYNTHETIC_PROFILES: dict[str, dict[str, Any]] = {
     },
 }
 
+SYNTHETIC_BANKING_FIXTURES: dict[str, dict[str, Any]] = {
+    "alex": {
+        "accounts": [
+            {"id": "chk-alex", "type": "Checking", "nickname": "Everyday", "balance": 4500},
+            {"id": "sav-alex", "type": "Savings", "nickname": "Emergency", "balance": 8000},
+        ],
+        "deposits": [
+            {"payee": "Acme Payroll", "cadence": "biweekly", "monthly_amount": 4400, "stable": True}
+        ],
+        "bills": [
+            {"payee": "Rent", "monthly_amount": 1600, "due_in_days": 8},
+            {"payee": "Utilities", "monthly_amount": 240, "due_in_days": 14},
+            {"payee": "Insurance", "monthly_amount": 165, "due_in_days": 21},
+            {"payee": "Phone and internet", "monthly_amount": 135, "due_in_days": 25},
+        ],
+        "essential_spending": [
+            {"category": "Groceries", "monthly_amount": 520},
+            {"category": "Transportation and health", "monthly_amount": 430},
+        ],
+        "loans": [],
+        "emergency_floor_factor": 1.0,
+    },
+    "covered": {
+        "accounts": [
+            {"id": "chk-covered", "type": "Checking", "nickname": "Bills", "balance": 5100},
+            {"id": "sav-covered", "type": "Savings", "nickname": "Reserve", "balance": 7200},
+        ],
+        "deposits": [
+            {
+                "payee": "Northstar Payroll",
+                "cadence": "monthly",
+                "monthly_amount": 5200,
+                "stable": True,
+            }
+        ],
+        "bills": [
+            {"payee": "Rent", "monthly_amount": 1750, "due_in_days": 6},
+            {"payee": "Utilities and communications", "monthly_amount": 410, "due_in_days": 18},
+        ],
+        "essential_spending": [{"category": "Living essentials", "monthly_amount": 1150}],
+        "loans": [{"type": "student", "monthly_payment": 275, "balance": 12400}],
+        "emergency_floor_factor": 1.0,
+    },
+    "limited": {
+        "accounts": [
+            {"id": "chk-limited", "type": "Checking", "nickname": "Everyday", "balance": 1800},
+            {"id": "sav-limited", "type": "Savings", "nickname": "Reserve", "balance": 1000},
+        ],
+        "deposits": [
+            {"payee": "City Payroll", "cadence": "biweekly", "monthly_amount": 3300, "stable": True}
+        ],
+        "bills": [
+            {"payee": "Rent", "monthly_amount": 1450, "due_in_days": 5},
+            {"payee": "Utilities and communications", "monthly_amount": 360, "due_in_days": 16},
+        ],
+        "essential_spending": [{"category": "Living essentials", "monthly_amount": 920}],
+        "loans": [{"type": "personal", "monthly_payment": 225, "balance": 5300}],
+        "emergency_floor_factor": 1.0,
+    },
+}
+
 
 class ResilientGuardianProfileRepository:
     """Snowflake-first demo repository with an explicitly labeled local fallback."""
@@ -264,11 +325,13 @@ class ResilientGuardianProfileRepository:
             fixture = LOCAL_SYNTHETIC_PROFILES.get(profile_id, {})
             profile.setdefault("telemetry", deepcopy(fixture.get("telemetry", {})))
             profile.setdefault("service_needs", deepcopy(fixture.get("service_needs", [])))
+            profile.setdefault("banking", deepcopy(SYNTHETIC_BANKING_FIXTURES.get(profile_id, {})))
         return result
 
     @staticmethod
     def _fallback() -> dict[str, dict[str, Any]]:
         profiles = deepcopy(LOCAL_SYNTHETIC_PROFILES)
-        for profile in profiles.values():
+        for profile_id, profile in profiles.items():
+            profile["banking"] = deepcopy(SYNTHETIC_BANKING_FIXTURES.get(profile_id, {}))
             profile["source"] = {"type": "local_synthetic_fallback", "simulated": True}
         return profiles

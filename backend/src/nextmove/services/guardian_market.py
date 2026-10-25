@@ -34,12 +34,23 @@ class GuardianMarketEvidenceService:
         self.database_path = Path(database_path).expanduser()
         self.ttl_seconds = ttl_seconds
 
-    def evidence(self, profile_id: str, *, refresh: bool = False) -> dict[str, Any] | None:
+    UPGRADE_LABELS = {
+        "corolla_hybrid": "2025 Toyota Corolla Hybrid LE",
+        "camry_le": "2025 Toyota Camry LE",
+        "prius_le": "2025 Toyota Prius LE",
+    }
+
+    def evidence(
+        self, profile_id: str, *, refresh: bool = False, upgrade_id: str = "corolla_hybrid"
+    ) -> dict[str, Any] | None:
         profile = self.repository.get_guardian_profile(profile_id)
         if profile is None:
             return None
+        if upgrade_id not in self.UPGRADE_LABELS:
+            raise ValueError("Unsupported synthetic upgrade vehicle")
+        cache_key = f"{profile_id}::{upgrade_id}"
         if not refresh:
-            cached = self._read_cache(profile_id)
+            cached = self._read_cache(cache_key) or self._read_cache(profile_id)
             if cached is not None:
                 cached["cached"] = True
                 return cached
@@ -50,19 +61,20 @@ class GuardianMarketEvidenceService:
         location = str(profile.get("region") or "United States")[:100]
         vehicle = profile.get("vehicle") or {}
         model = self._vehicle_label(vehicle)
-        replacement = "Toyota Corolla Hybrid LE"
-        # Five bounded public-web searches per deliberate refresh. These are
-        # references for a planning conversation, never a quote, offer, approval, or
-        # automatic change to a comparison.
+        replacement = self.UPGRADE_LABELS[upgrade_id]
+        # Four bounded, decision-specific searches per deliberate refresh.
         searches = (
             ("fuel", "site:gasprices.aaa.com Austin TX regular gasoline price today", location),
-            ("corolla", "site:toyota.com Corolla Hybrid LE MSRP lease Texas 2026", None),
-            ("camry", "site:toyota.com Camry LE MSRP lease Texas 2026", None),
-            ("prius", "site:toyota.com Prius LE MSRP lease Texas 2026", None),
+            ("upgrade", f'site:toyota.com "{replacement}" MSRP lease Texas', None),
             (
                 "finance",
                 'site:toyota.com/deals-incentives/texas Toyota "APR" financing',
                 None,
+            ),
+            (
+                "trade",
+                f"{model} trade in value Austin TX Kelley Blue Book Edmunds",
+                location,
             ),
         )
         with ThreadPoolExecutor(max_workers=len(searches)) as executor:
@@ -72,22 +84,33 @@ class GuardianMarketEvidenceService:
             }
             results = {key: future.result() for key, future in futures.items()}
         fuel = results["fuel"]
-        corolla_reference = results["corolla"]
-        camry_reference = results["camry"]
-        prius_reference = results["prius"]
+        upgrade_reference = results["upgrade"]
         finance_reference = results["finance"]
+        trade_reference = results["trade"]
         categories = [
-            self._category("Fuel-price research", fuel),
-            self._category("Corolla Hybrid pricing and lease research", corolla_reference),
-            self._category("Camry pricing and lease research", camry_reference),
-            self._category("Prius pricing and lease research", prius_reference),
-            self._category("Toyota regional finance and lease research", finance_reference),
+            self._category("Fuel input", fuel, "Estimate annual operating cost"),
+            self._category(
+                f"{replacement} market reference",
+                upgrade_reference,
+                "Validate MSRP and advertised lease context",
+            ),
+            self._category(
+                "Regional Toyota finance reference",
+                finance_reference,
+                "Compare the synthetic APR and term with public programs",
+            ),
+            self._category(
+                f"{model} value reference",
+                trade_reference,
+                "Validate the illustrative trade credit used by the finance plan",
+            ),
         ]
         body = {
             "profile_id": profile_id,
             "location": location,
             "vehicle": model,
             "replacement_vehicle": replacement,
+            "upgrade_id": upgrade_id,
             "cached": False,
             "retrieved_at": datetime.now(UTC).isoformat(),
             "source": "serpapi",
@@ -101,14 +124,14 @@ class GuardianMarketEvidenceService:
                 "synthetic calculation."
             ),
         }
-        self._write_cache(profile_id, body)
+        self._write_cache(cache_key, body)
         return body
 
     def adopt_fuel_reference(self, profile_id: str, evidence_id: str) -> dict[str, Any] | None:
         """Return a user-confirmation payload; never mutate a comparison automatically."""
         if self.repository.get_guardian_profile(profile_id) is None:
             return None
-        cached = self._read_cache(profile_id)
+        cached = self._read_latest_profile_cache(profile_id)
         if cached is None:
             raise ValueError(
                 "No current fuel research is available. Refresh public research first."
@@ -134,7 +157,7 @@ class GuardianMarketEvidenceService:
         ).strip()[:100]
 
     @staticmethod
-    def _category(label: str, result: Any) -> dict[str, Any]:
+    def _category(label: str, result: Any, decision_use: str) -> dict[str, Any]:
         items = []
         for evidence in result.evidence:
             item = asdict(evidence)
@@ -146,6 +169,7 @@ class GuardianMarketEvidenceService:
             "evidence": items,
             "warning": result.warning,
             "status": "needs_verification",
+            "decision_use": decision_use,
         }
 
     @staticmethod
@@ -200,6 +224,17 @@ class GuardianMarketEvidenceService:
             row = connection.execute(
                 "SELECT cached_at, body FROM guardian_market_cache WHERE profile_id=?",
                 (profile_id,),
+            ).fetchone()
+        if row is None or datetime.now(UTC).timestamp() - row[0] >= self.ttl_seconds:
+            return None
+        return json.loads(row[1])
+
+    def _read_latest_profile_cache(self, profile_id: str) -> dict[str, Any] | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT cached_at, body FROM guardian_market_cache "
+                "WHERE profile_id=? OR profile_id LIKE ? ORDER BY cached_at DESC LIMIT 1",
+                (profile_id, f"{profile_id}::%"),
             ).fetchone()
         if row is None or datetime.now(UTC).timestamp() - row[0] >= self.ttl_seconds:
             return None

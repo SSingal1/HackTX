@@ -36,13 +36,17 @@ def test_synthetic_comparisons(client):
 
     base = compare()
     assert base["calculation"]["keep"] == 3800
-    assert base["calculation"]["replace"] == 9420
+    assert base["calculation"]["replace"] == 5269.8
     assert base["calculation"]["keepReserveOK"] is True
     assert base["calculation"]["keepMonthlyOK"] is True
     assert len(base["upgrade_options"]) == 3
     assert base["decision"]["comparison_basis"] == "cash_flow"
     assert base["profile"]["name"] == "Alex Morgan"
     assert base["source"]["type"] == "local_synthetic_fallback"
+    assert base["banking"]["source"] == "synthetic_nessie_fixture"
+    assert base["banking"]["monthly_free_cash_flow"] == 1310
+    assert base["finance_plan"]["term_months"] == 72
+    assert 240 < base["finance_plan"]["monthly_payment"] < 270
     assert compare(discount=True)["calculation"]["oop"] == 1750
     covered = compare(profile="covered", discount=True, repair=500)["calculation"]
     assert covered["coverage"] == 500
@@ -53,7 +57,7 @@ def test_synthetic_comparisons(client):
     assert all(x["rank"] is None for x in limited["decision"]["options"])
     assert limited["recommendation"]["warning"]
     assert compare(miles=24000)["calculation"]["fuelKeep"] == 2800
-    monthly = compare(monthly_free_cash_flow=500)
+    monthly = compare(monthly_free_cash_flow=200)
     assert monthly["calculation"]["keepMonthlyOK"] is True
     assert monthly["calculation"]["replaceMonthlyOK"] is False
     liquid = compare(cash_on_hand=21000, repair=4500, reserve=2000)

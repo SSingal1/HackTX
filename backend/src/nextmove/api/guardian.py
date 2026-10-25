@@ -19,6 +19,7 @@ from nextmove.api.dependencies import (
 from nextmove.data.guardian import GuardianProfileRepository
 from nextmove.decision.engine import DecisionEngine
 from nextmove.decision.models import DecisionRequest, OptionInput
+from nextmove.services.guardian_banking import banking_forensics, synthetic_finance_plan
 from nextmove.services.guardian_chat import GuardianChatService
 from nextmove.services.guardian_market import GuardianMarketEvidenceService
 from nextmove.services.guardian_providers import GuardianProviderService
@@ -35,6 +36,8 @@ UPGRADE_OPTIONS = {
         "mpg": 50,
         "routine": 300,
         "msrp": 24760,
+        "trade_credit": 8500,
+        "planning_apr": 5.9,
     },
     "camry_le": {
         "label": "2025 Camry LE",
@@ -45,6 +48,8 @@ UPGRADE_OPTIONS = {
         "mpg": 51,
         "routine": 300,
         "msrp": 28400,
+        "trade_credit": 8500,
+        "planning_apr": 5.9,
     },
     "prius_le": {
         "label": "2025 Prius LE",
@@ -55,6 +60,8 @@ UPGRADE_OPTIONS = {
         "mpg": 57,
         "routine": 300,
         "msrp": 28350,
+        "trade_credit": 8500,
+        "planning_apr": 5.9,
     },
 }
 
@@ -120,6 +127,14 @@ def profiles(repository: GuardianProfileRepository = Depends(get_guardian_reposi
     return {"profiles": loaded, "simulated": True, "sources": sources}
 
 
+@router.get("/banking")
+def banking(
+    profile: str, repository: GuardianProfileRepository = Depends(get_guardian_repository)
+) -> dict:
+    """Return synthetic Nessie-shaped financial forensics for one demo profile."""
+    return banking_forensics(selected(repository, profile))
+
+
 @router.get("/integration-status")
 def integration_status() -> dict:
     """Safe, non-secret runtime diagnostics for the hackathon demo UI."""
@@ -134,7 +149,7 @@ def integration_status() -> dict:
             "configured": bool(settings.serpapi_api_key),
             "provider_cache_seconds": settings.guardian_provider_cache_ttl_seconds,
             "market_cache_seconds": settings.guardian_market_cache_ttl_seconds,
-            "market_refresh_searches": 5,
+            "market_refresh_searches": 4,
         },
         "snowflake": {
             "configured": bool(settings.snowflake_account and settings.snowflake_user),
@@ -160,10 +175,14 @@ def providers(
 def market_evidence(
     profile: str,
     refresh: bool = False,
+    upgrade: str = "corolla_hybrid",
     service: GuardianMarketEvidenceService = Depends(get_guardian_market_service),
 ) -> dict:
     """Refresh is the sole path that spends SerpApi quota for this evidence."""
-    result = service.evidence(profile, refresh=refresh)
+    try:
+        result = service.evidence(profile, refresh=refresh, upgrade_id=upgrade)
+    except ValueError as error:
+        raise HTTPException(422, str(error)) from error
     if result is None:
         raise HTTPException(404, "Synthetic Guardian profile not found")
     return result
@@ -225,6 +244,8 @@ def chat(
 def _compare(payload: ComparePayload, repository: GuardianProfileRepository) -> dict:
     p = selected(repository, payload.profile)
     upgrade = UPGRADE_OPTIONS[payload.upgrade_id]
+    banking = banking_forensics(p)
+    finance_plan = synthetic_finance_plan(upgrade, banking, mode=payload.upgrade_mode)
     coverage = min(Decimal(p["coverage"]), payload.repair)
     discount = min(Decimal(50), payload.repair) if payload.discount and not coverage else Decimal(0)
     oop = payload.repair - coverage - discount
@@ -233,27 +254,28 @@ def _compare(payload: ComparePayload, repository: GuardianProfileRepository) -> 
     fuel_replace = (Decimal(payload.miles) / Decimal(upgrade["mpg"]) * fuel_price).quantize(
         Decimal(".01")
     )
-    replacement_cash_due = Decimal(
-        str(upgrade["lease_due"] if payload.upgrade_mode == "lease" else upgrade["cash_due"])
+    replacement_cash_due = Decimal(str(finance_plan["cash_due"]))
+    replacement_payment = Decimal(str(finance_plan["monthly_payment"]))
+    starting_cash = (
+        payload.cash_on_hand
+        if payload.cash_on_hand is not None
+        else Decimal(str(banking["total_liquidity"]))
     )
-    replacement_payment = Decimal(
-        str(
-            upgrade["lease_monthly"]
-            if payload.upgrade_mode == "lease"
-            else upgrade["purchase_monthly"]
-        )
-    )
-    starting_cash = payload.cash_on_hand if payload.cash_on_hand is not None else Decimal(p["cash"])
+    protected_floor = max(payload.reserve, Decimal(str(banking["cash_to_protect"])))
     keep_cash, replace_cash = starting_cash - oop, starting_cash - replacement_cash_due
     keep_reserve_ok, replace_reserve_ok = (
-        keep_cash >= payload.reserve,
-        replace_cash >= payload.reserve,
+        keep_cash >= protected_floor,
+        replace_cash >= protected_floor,
     )
     keep_monthly = (
         Decimal(p.get("contract", {}).get("monthly_payment") or 0) * 12 + Decimal(600) + fuel_keep
     ) / 12
     replace_monthly = (replacement_payment * 12 + Decimal(upgrade["routine"]) + fuel_replace) / 12
-    monthly_flow = payload.monthly_free_cash_flow
+    monthly_flow = (
+        payload.monthly_free_cash_flow
+        if payload.monthly_free_cash_flow is not None
+        else Decimal(str(banking["monthly_free_cash_flow"]))
+    )
     keep_monthly_ok = monthly_flow is None or keep_monthly <= monthly_flow
     replace_monthly_ok = monthly_flow is None or replace_monthly <= monthly_flow
     keep_ok, replace_ok = (
@@ -318,10 +340,15 @@ def _compare(payload: ComparePayload, repository: GuardianProfileRepository) -> 
                     "insurance_registration": "assumed equal",
                     "simulated": True,
                     "reserve_scope": "Protected cash floor after one-time cash due",
+                    "protected_cash_floor": float(protected_floor),
                     "cash_on_hand": float(starting_cash),
                     "monthly_free_cash_flow": float(monthly_flow)
                     if monthly_flow is not None
                     else None,
+                    "banking_source": banking["source"],
+                    "cash_to_protect": banking["cash_to_protect"],
+                    "safe_to_spend": banking["safe_to_spend"],
+                    "post_upgrade_dti": finance_plan["post_upgrade_dti"],
                 },
                 unknowns=(
                     "Ending vehicle values and equity are unknown.",
@@ -375,6 +402,7 @@ def _compare(payload: ComparePayload, repository: GuardianProfileRepository) -> 
         replaceMonthly=replace_monthly,
         replacementCashDue=replacement_cash_due,
         replacementPayment=replacement_payment,
+        protectedFloor=protected_floor,
     )
     return {
         "calculation": {
@@ -393,6 +421,8 @@ def _compare(payload: ComparePayload, repository: GuardianProfileRepository) -> 
         },
         "decision": result,
         "profile": p,
+        "banking": banking,
+        "finance_plan": finance_plan,
         "upgrade_options": UPGRADE_OPTIONS,
         "selected_upgrade": {"id": payload.upgrade_id, "mode": payload.upgrade_mode, **upgrade},
         "source": p["source"],
