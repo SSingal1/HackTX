@@ -267,6 +267,28 @@ def test_valid_provider_citation_and_requested_slider_proposal(tmp_path):
     assert result.scenario_change["value"] == 2200
 
 
+def test_grounded_whole_dollar_rounding_is_accepted(tmp_path):
+    output = {
+        "message": "Keeping uses $1,470 less over 12 months.",
+        "cited_evidence_ids": [],
+        "scenario_change": None,
+    }
+    comparison = {
+        "calculation": {"keep": 3800, "replace": 5269.8, "difference": 1469.8},
+        "recommendation": {"title": "Keep", "text": "Keeping currently uses less cash."},
+        "decision": {"unknowns": []},
+    }
+    result = build_service(tmp_path, lambda url, body, timeout: gemini_response(output)).respond(
+        profile_id="alex",
+        scenario=payload()["scenario"],
+        comparison=comparison,
+        view="comparison",
+        message="Explain the comparison",
+        history=[],
+    )
+    assert result.fallback is False
+
+
 def test_unsolicited_in_range_scenario_proposal_is_dropped_not_fallback(tmp_path):
     output = {
         "message": "Keeping the Camry is currently lower in this synthetic scenario.",
@@ -416,7 +438,7 @@ def test_keyless_fallback_adapts_to_supported_user_intents():
     cases = {
         "Does my coverage apply?": "$1,000",
         "What will this cost?": "$3,800",
-        "Explain this scenario": "12000 annual miles",
+        "Explain this scenario": "12,000 annual miles",
         "Should I upgrade or lease?": "lease or upgrade",
     }
     for message, expected in cases.items():
@@ -430,3 +452,14 @@ def test_keyless_fallback_adapts_to_supported_user_intents():
     provider_result = client.answer(context)
     assert "Example Toyota Service" in provider_result.message
     assert provider_result.cited_evidence_ids == ("provider_1",)
+
+    context["authoritative"]["scenario"] = {
+        "miles": "12000",
+        "repair": "1800.00",
+        "reserve": "3090.00",
+    }
+    context["untrusted"]["message"] = "Explain this scenario"
+    string_result = client.answer(context)
+    assert "12,000 annual miles" in string_result.message
+    assert "$1,800 repair estimate" in string_result.message
+    assert "$3,090 protected reserve" in string_result.message

@@ -195,17 +195,14 @@ class GuardianGeminiClient:
                     output.scenario_change = None
                     allowed_change_number = None
 
-        trusted_numbers = {
-            _canonical_number(number)
-            for number in re.findall(r"-?\d+(?:\.\d+)?", json.dumps(authoritative, default=str))
-        }
+        trusted_numbers: set[str] = set()
+        for number in re.findall(r"-?\d+(?:\.\d+)?", json.dumps(authoritative, default=str)):
+            trusted_numbers.update(_trusted_number_forms(number))
         cited_market = [
             item for item in market_items if item["evidence_id"] in output.cited_evidence_ids
         ]
-        trusted_numbers.update(
-            _canonical_number(number)
-            for number in re.findall(r"-?\d+(?:\.\d+)?", json.dumps(cited_market, default=str))
-        )
+        for number in re.findall(r"-?\d+(?:\.\d+)?", json.dumps(cited_market, default=str)):
+            trusted_numbers.update(_trusted_number_forms(number))
         if allowed_change_number:
             trusted_numbers.add(allowed_change_number)
         for number in re.findall(r"-?\d+(?:\.\d+)?", output.message.replace(",", "")):
@@ -274,10 +271,13 @@ class GuardianGeminiClient:
         elif any(
             word in message for word in ("scenario", "miles", "repair", "reserve", "discount")
         ):
+            miles = _display_number(scenario.get("miles"))
+            repair = _display_number(scenario.get("repair"), money=True)
+            reserve = _display_number(scenario.get("reserve"), money=True)
             answer = (
-                f"The current scenario uses {scenario.get('miles')} annual miles, a "
-                f"${scenario.get('repair', 0):,.0f} repair estimate, and a "
-                f"${scenario.get('reserve', 0):,.0f} protected reserve. Change those controls "
+                f"The current scenario uses {miles} annual miles, a "
+                f"{repair} repair estimate, and a {reserve} protected reserve. "
+                "Change those controls "
                 "to recalculate the comparison; no change is applied from chat automatically."
             )
         elif any(word in message for word in ("lease", "upgrade", "replace", "new car")):
@@ -299,6 +299,25 @@ class GuardianGeminiClient:
 def _canonical_number(value: Any) -> str:
     number = Decimal(str(value))
     return format(number.normalize(), "f")
+
+
+def _trusted_number_forms(value: Any) -> set[str]:
+    """Allow an exact supplied value and its conventional whole-unit rounding."""
+    number = Decimal(str(value))
+    return {
+        _canonical_number(number),
+        _canonical_number(number.quantize(Decimal("1"))),
+    }
+
+
+def _display_number(value: Any, *, money: bool = False) -> str:
+    """Format API values safely whether Pydantic supplied numbers or numeric strings."""
+    try:
+        number = Decimal(str(value or 0))
+    except Exception:
+        return "$0" if money else "0"
+    rendered = f"{number:,.0f}"
+    return f"${rendered}" if money else rendered
 
 
 def _market_items(categories: list[dict[str, Any]]) -> list[dict[str, str]]:
